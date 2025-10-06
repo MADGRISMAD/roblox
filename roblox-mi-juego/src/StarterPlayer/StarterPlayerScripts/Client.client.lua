@@ -664,6 +664,7 @@ player.CharacterAdded:Connect(function(character)
     print("=== CONTROLES ===")
     print("🥊 GOLPE: Clic izquierdo o tecla F")
     print("🦘 SALTO/DOBLE SALTO: Tecla ESPACIO")
+    print("🏃 SPRINT NARUTO: Camina por 1.5 segundos")
     print("💰 OBJETIVO: ¡Derrota enemigos rojos para ganar monedas!")
     print("================")
     
@@ -671,9 +672,19 @@ player.CharacterAdded:Connect(function(character)
     isOnCooldown = false
     jumpsUsed = 0
     isJumpOnCooldown = false
+    isSprinting = false
+    walkingStartTime = 0
     
-    -- Configurar sistema de salto personalizado
+    -- Limpiar efectos anteriores
+    if windSound then
+        windSound:Stop()
+        windSound:Destroy()
+        windSound = nil
+    end
+    
+    -- Configurar sistemas personalizados
     setupJumpDetection(character)
+    setupMovementMonitoring(character)
     
     -- Crear UI de monedas
     coinDisplay = createCoinUI()
