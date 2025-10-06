@@ -233,6 +233,173 @@ local function performJump()
     isJumpOnCooldown = false
 end
 
+-- Funciones para el sistema de sprint estilo Naruto
+local function createSprintEffect(character)
+    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    
+    -- Crear efecto de viento/velocidad
+    local windEffect = Instance.new("Part")
+    windEffect.Name = "WindEffect"
+    windEffect.Size = Vector3.new(0.1, 0.1, 0.1)
+    windEffect.Material = Enum.Material.Neon
+    windEffect.BrickColor = BrickColor.new("Cyan")
+    windEffect.Anchored = true
+    windEffect.CanCollide = false
+    windEffect.Transparency = 0.3
+    
+    -- Posición aleatoria alrededor del personaje
+    local randomOffset = Vector3.new(
+        math.random(-3, 3),
+        math.random(-1, 3),
+        math.random(-3, 3)
+    )
+    windEffect.Position = humanoidRootPart.Position + randomOffset
+    windEffect.Parent = workspace
+    
+    -- Crear forma de rayo/línea de viento
+    windEffect.Shape = Enum.PartType.Block
+    windEffect.Size = Vector3.new(0.2, 0.2, math.random(2, 5))
+    
+    -- Animar el efecto de viento moviéndose hacia atrás
+    local moveDirection = -humanoidRootPart.CFrame.LookVector * math.random(20, 40)
+    local endPosition = windEffect.Position + moveDirection
+    
+    local moveTween = TweenService:Create(
+        windEffect,
+        TweenInfo.new(SharedModule.getSprintEffectDuration(), Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            Position = endPosition,
+            Transparency = 1,
+            Size = Vector3.new(0.1, 0.1, windEffect.Size.Z * 1.5)
+        }
+    )
+    
+    moveTween:Play()
+    moveTween.Completed:Connect(function()
+        windEffect:Destroy()
+    end)
+    
+    return windEffect
+end
+
+local function startSprintEffects(character)
+    if not character or isSprinting then return end
+    
+    isSprinting = true
+    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    local humanoid = character:WaitForChild("Humanoid")
+    
+    -- Aumentar velocidad de caminar
+    humanoid.WalkSpeed = SharedModule.getSprintSpeed()
+    
+    -- Crear sonido de viento
+    windSound = Instance.new("Sound")
+    windSound.SoundId = "rbxasset://sounds/electronicpingsharp_loud.wav"
+    windSound.Volume = 0.4
+    windSound.Pitch = 0.8
+    windSound.Looped = true
+    windSound.Parent = humanoidRootPart
+    windSound:Play()
+    
+    -- Crear texto flotante de sprint
+    local sprintGui = Instance.new("BillboardGui")
+    sprintGui.Name = "SprintGui"
+    sprintGui.Size = UDim2.new(0, 120, 0, 30)
+    sprintGui.StudsOffset = Vector3.new(0, 4, 0)
+    sprintGui.Parent = humanoidRootPart
+    
+    local sprintText = Instance.new("TextLabel")
+    sprintText.Size = UDim2.new(1, 0, 1, 0)
+    sprintText.BackgroundTransparency = 1
+    sprintText.Text = "🏃💨 MODO NARUTO!"
+    sprintText.TextColor3 = Color3.new(0, 1, 1)  -- Cian
+    sprintText.TextScaled = true
+    sprintText.Font = Enum.Font.SourceSansBold
+    sprintText.Parent = sprintGui
+    
+    -- Efecto de parpadeo en el texto
+    local blinkTween = TweenService:Create(
+        sprintText,
+        TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {TextTransparency = 0.3}
+    )
+    blinkTween:Play()
+    
+    print("¡MODO SPRINT NARUTO ACTIVADO! 🏃💨")
+    
+    -- Crear efectos de viento continuos
+    spawn(function()
+        while isSprinting and character.Parent do
+            createSprintEffect(character)
+            wait(0.05)  -- Crear efectos muy rápidamente
+        end
+    end)
+end
+
+local function stopSprintEffects(character)
+    if not isSprinting or not character then return end
+    
+    isSprinting = false
+    local humanoid = character:FindFirstChild("Humanoid")
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    
+    -- Restaurar velocidad normal
+    if humanoid then
+        humanoid.WalkSpeed = SharedModule.getNormalWalkSpeed()
+    end
+    
+    -- Detener sonido de viento
+    if windSound then
+        windSound:Stop()
+        windSound:Destroy()
+        windSound = nil
+    end
+    
+    -- Remover GUI de sprint
+    if humanoidRootPart then
+        local sprintGui = humanoidRootPart:FindFirstChild("SprintGui")
+        if sprintGui then
+            sprintGui:Destroy()
+        end
+    end
+    
+    print("Modo sprint desactivado")
+end
+
+local function checkMovement(character)
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChild("Humanoid")
+    
+    if not humanoidRootPart or not humanoid then return end
+    
+    local currentPosition = humanoidRootPart.Position
+    local moveVector = humanoid.MoveDirection
+    local isMoving = moveVector.Magnitude > SharedModule.getMovementThreshold()
+    
+    if isMoving then
+        -- Si acaba de empezar a moverse
+        if walkingStartTime == 0 then
+            walkingStartTime = tick()
+        end
+        
+        -- Verificar si ha estado caminando por suficiente tiempo
+        local walkTime = tick() - walkingStartTime
+        if walkTime >= SharedModule.getSprintActivationTime() and not isSprinting then
+            startSprintEffects(character)
+        end
+    else
+        -- Si dejó de moverse
+        if walkingStartTime > 0 then
+            walkingStartTime = 0
+            if isSprinting then
+                stopSprintEffects(character)
+            end
+        end
+    end
+    
+    lastPosition = currentPosition
+end
+
 -- Función para crear efecto visual de golpe
 local function createPunchEffect(character)
     local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
@@ -438,6 +605,22 @@ local function setupJumpDetection(character)
     
     -- Desactivar el salto automático de Roblox para tener control total
     humanoid.JumpPower = 0
+end
+
+-- Sistema de monitoreo continuo del movimiento
+local function setupMovementMonitoring(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    
+    -- Configurar velocidad inicial normal
+    humanoid.WalkSpeed = SharedModule.getNormalWalkSpeed()
+    
+    -- Monitorear movimiento constantemente
+    spawn(function()
+        while character.Parent and character:FindFirstChild("Humanoid") do
+            checkMovement(character)
+            wait(0.1)  -- Verificar cada 0.1 segundos
+        end
+    end)
 end
 
 -- Función para actualizar la UI de monedas
