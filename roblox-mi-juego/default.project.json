@@ -1,25 +1,25 @@
 {
   "name": "MiProyectoRoblox",
   "tree": {
-    "\": "DataModel",
+    "$className": "DataModel",
     "ServerScriptService": {
-      "\": "ServerScriptService",
+      "$className": "ServerScriptService",
       "Main": {
-        "\": "src/ServerScriptService/Main.server.lua"
+        "$path": "src/ServerScriptService/Main.server.lua"
       }
     },
     "ReplicatedStorage": {
-      "\": "ReplicatedStorage",
+      "$className": "ReplicatedStorage",
       "SharedModule": {
-        "\": "src/ReplicatedStorage/SharedModule.lua"
+        "$path": "src/ReplicatedStorage/SharedModule.lua"
       }
     },
     "StarterPlayer": {
-      "\": "StarterPlayer",
+      "$className": "StarterPlayer",
       "StarterPlayerScripts": {
-        "\": "StarterPlayerScripts",
+        "$className": "StarterPlayerScripts",
         "Client": {
-          "\": "src/StarterPlayer/StarterPlayerScripts/Client.client.lua"
+          "$path": "src/StarterPlayer/StarterPlayerScripts/Client.client.lua"
         }
       }
     }
