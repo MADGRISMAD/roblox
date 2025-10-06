@@ -1,0 +1,27 @@
+{
+  "name": "MiProyectoRoblox",
+  "tree": {
+    "\": "DataModel",
+    "ServerScriptService": {
+      "\": "ServerScriptService",
+      "Main": {
+        "\": "src/ServerScriptService/Main.server.lua"
+      }
+    },
+    "ReplicatedStorage": {
+      "\": "ReplicatedStorage",
+      "SharedModule": {
+        "\": "src/ReplicatedStorage/SharedModule.lua"
+      }
+    },
+    "StarterPlayer": {
+      "\": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "\": "StarterPlayerScripts",
+        "Client": {
+          "\": "src/StarterPlayer/StarterPlayerScripts/Client.client.lua"
+        }
+      }
+    }
+  }
+}
