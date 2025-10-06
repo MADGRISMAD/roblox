@@ -26,6 +26,13 @@ local maxJumps = SharedModule.getMaxJumps()
 local isJumpOnCooldown = false
 local lastJumpTime = 0
 
+-- Variables para el sistema de sprint estilo Naruto
+local isSprinting = false
+local walkingStartTime = 0
+local lastPosition = Vector3.new(0, 0, 0)
+local sprintEffects = {}
+local windSound = nil
+
 -- Crear interfaz de monedas
 local function createCoinUI()
     local playerGui = player:WaitForChild("PlayerGui")

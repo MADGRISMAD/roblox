@@ -104,4 +104,25 @@ function SharedModule.getJumpCooldown()
     return 0.1  -- Tiempo mínimo entre saltos para evitar spam
 end
 
+-- Funciones para el sistema de sprint estilo Naruto
+function SharedModule.getSprintActivationTime()
+    return 1.5  -- Segundos de caminar antes de activar sprint
+end
+
+function SharedModule.getNormalWalkSpeed()
+    return 16  -- Velocidad normal de caminar
+end
+
+function SharedModule.getSprintSpeed()
+    return 35  -- Velocidad en modo sprint (más del doble)
+end
+
+function SharedModule.getSprintEffectDuration()
+    return 0.1  -- Duración de cada efecto de partícula
+end
+
+function SharedModule.getMovementThreshold()
+    return 0.5  -- Mínima velocidad para considerar que se está moviendo
+end
+
 return SharedModule
