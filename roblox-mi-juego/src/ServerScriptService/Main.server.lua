@@ -1,24 +1,23 @@
--- Servidor principal para Enter the Gungeon
+-- Servidor mejorado para Survival Capitalist Clicker
 local SharedModule = require(game.ReplicatedStorage.SharedModule)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Debris = game:GetService("Debris")
+local DataStoreService = game:GetService("DataStoreService")
 
 -- Variables del juego
-local currentRoom = nil
-local enemies = {}
-local bullets = {}
-local items = {}
-local playerStats = {}
-local gameState = "playing" -- playing, paused, gameOver
+local playerData = {}
+local gameConfig = SharedModule.getGameConfig()
+local businessTypes = SharedModule.getBusinessTypes()
+local upgradeTypes = SharedModule.getUpgradeTypes()
 
--- Configuración
-local roomConfig = SharedModule.getRoomConfig()
-local enemyTypes = SharedModule.getEnemyTypes()
-local bulletStats = SharedModule.getBulletStats()
-local itemStats = SharedModule.getItemStats()
-local soundIds = SharedModule.getSoundIds()
+-- DataStore para guardar progreso (solo funciona en juegos publicados)
+local playerDataStore = nil
+if game:GetService("RunService"):IsStudio() then
+    print("⚠️ Modo Studio: DataStore deshabilitado")
+else
+    playerDataStore = DataStoreService:GetDataStore("SurvivalCapitalist_PlayerData")
+end
 
 -- ===== CREACIÓN DE REMOTEEVENTS =====
 local function createRemoteEvents()
@@ -26,500 +25,405 @@ local function createRemoteEvents()
     remoteEvents.Name = "RemoteEvents"
     remoteEvents.Parent = ReplicatedStorage
     
-    local fireWeaponEvent = Instance.new("RemoteEvent")
-    fireWeaponEvent.Name = "FireWeapon"
-    fireWeaponEvent.Parent = remoteEvents
+    local clickEvent = Instance.new("RemoteEvent")
+    clickEvent.Name = "Click"
+    clickEvent.Parent = remoteEvents
     
-    local playerHurtEvent = Instance.new("RemoteEvent")
-    playerHurtEvent.Name = "PlayerHurt"
-    playerHurtEvent.Parent = remoteEvents
+    local buyBusinessEvent = Instance.new("RemoteEvent")
+    buyBusinessEvent.Name = "BuyBusiness"
+    buyBusinessEvent.Parent = remoteEvents
     
-    local updateStatsEvent = Instance.new("RemoteEvent")
-    updateStatsEvent.Name = "UpdateStats"
-    updateStatsEvent.Parent = remoteEvents
+    local buyUpgradeEvent = Instance.new("RemoteEvent")
+    buyUpgradeEvent.Name = "BuyUpgrade"
+    buyUpgradeEvent.Parent = remoteEvents
     
-    local rollEvent = Instance.new("RemoteEvent")
-    rollEvent.Name = "Roll"
-    rollEvent.Parent = remoteEvents
+    local collectBusinessEvent = Instance.new("RemoteEvent")
+    collectBusinessEvent.Name = "CollectBusiness"
+    collectBusinessEvent.Parent = remoteEvents
     
-    local enemySpawnEvent = Instance.new("RemoteEvent")
-    enemySpawnEvent.Name = "EnemySpawn"
-    enemySpawnEvent.Parent = remoteEvents
+    local saveDataEvent = Instance.new("RemoteEvent")
+    saveDataEvent.Name = "SaveData"
+    saveDataEvent.Parent = remoteEvents
+    
+    local loadDataEvent = Instance.new("RemoteEvent")
+    loadDataEvent.Name = "LoadData"
+    loadDataEvent.Parent = remoteEvents
+    
+    local prestigeEvent = Instance.new("RemoteEvent")
+    prestigeEvent.Name = "Prestige"
+    prestigeEvent.Parent = remoteEvents
+    
+    local dailyRewardEvent = Instance.new("RemoteEvent")
+    dailyRewardEvent.Name = "DailyReward"
+    dailyRewardEvent.Parent = remoteEvents
     
     return {
-        fireWeapon = fireWeaponEvent,
-        playerHurt = playerHurtEvent,
-        updateStats = updateStatsEvent,
-        roll = rollEvent,
-        enemySpawn = enemySpawnEvent
+        click = clickEvent,
+        buyBusiness = buyBusinessEvent,
+        buyUpgrade = buyUpgradeEvent,
+        collectBusiness = collectBusinessEvent,
+        saveData = saveDataEvent,
+        loadData = loadDataEvent,
+        prestige = prestigeEvent,
+        dailyReward = dailyRewardEvent
     }
 end
 
 local remoteEvents = createRemoteEvents()
 
--- ===== CREACIÓN DE HABITACIÓN =====
-local function createRoom()
-    local room = Instance.new("Model")
-    room.Name = "GungeonRoom"
-    room.Parent = workspace
-    
-    -- Suelo
-    local floor = Instance.new("Part")
-    floor.Name = "Floor"
-    floor.Size = roomConfig.roomSize
-    floor.Position = Vector3.new(0, -roomConfig.roomSize.Y/2, 0)
-    floor.Material = Enum.Material.Wood
-    floor.BrickColor = BrickColor.new("Brown")
-    floor.Anchored = true
-    floor.Parent = room
-    
-    -- Paredes
-    local wallThickness = roomConfig.wallThickness
-    local roomSize = roomConfig.roomSize
-    
-    -- Pared norte
-    local northWall = Instance.new("Part")
-    northWall.Name = "NorthWall"
-    northWall.Size = Vector3.new(roomSize.X + wallThickness*2, roomSize.Y, wallThickness)
-    northWall.Position = Vector3.new(0, 0, roomSize.Z/2 + wallThickness/2)
-    northWall.Material = Enum.Material.Brick
-    northWall.BrickColor = BrickColor.new("Dark stone grey")
-    northWall.Anchored = true
-    northWall.Parent = room
-    
-    -- Pared sur
-    local southWall = Instance.new("Part")
-    southWall.Name = "SouthWall"
-    southWall.Size = Vector3.new(roomSize.X + wallThickness*2, roomSize.Y, wallThickness)
-    southWall.Position = Vector3.new(0, 0, -roomSize.Z/2 - wallThickness/2)
-    southWall.Material = Enum.Material.Brick
-    southWall.BrickColor = BrickColor.new("Dark stone grey")
-    southWall.Anchored = true
-    southWall.Parent = room
-    
-    -- Pared este
-    local eastWall = Instance.new("Part")
-    eastWall.Name = "EastWall"
-    eastWall.Size = Vector3.new(wallThickness, roomSize.Y, roomSize.Z)
-    eastWall.Position = Vector3.new(roomSize.X/2 + wallThickness/2, 0, 0)
-    eastWall.Material = Enum.Material.Brick
-    eastWall.BrickColor = BrickColor.new("Dark stone grey")
-    eastWall.Anchored = true
-    eastWall.Parent = room
-    
-    -- Pared oeste
-    local westWall = Instance.new("Part")
-    westWall.Name = "WestWall"
-    westWall.Size = Vector3.new(wallThickness, roomSize.Y, roomSize.Z)
-    westWall.Position = Vector3.new(-roomSize.X/2 - wallThickness/2, 0, 0)
-    westWall.Material = Enum.Material.Brick
-    westWall.BrickColor = BrickColor.new("Dark stone grey")
-    westWall.Anchored = true
-    westWall.Parent = room
-    
-    -- Puerta sur (entrada)
-    local door = Instance.new("Part")
-    door.Name = "Door"
-    door.Size = roomConfig.doorSize
-    door.Position = Vector3.new(0, -roomSize.Y/2 + roomConfig.doorSize.Y/2, -roomSize.Z/2 - wallThickness/2)
-    door.Material = Enum.Material.Wood
-    door.BrickColor = BrickColor.new("Dark orange")
-    door.Anchored = true
-    door.Parent = room
-    
-    -- Crear un hueco en la pared sur para la puerta
-    local doorHole = Instance.new("Part")
-    doorHole.Name = "DoorHole"
-    doorHole.Size = Vector3.new(roomConfig.doorSize.X + 1, roomConfig.doorSize.Y + 1, wallThickness + 1)
-    doorHole.Position = door.Position
-    doorHole.Material = Enum.Material.Air
-    doorHole.Transparency = 1
-    doorHole.CanCollide = false
-    doorHole.Anchored = true
-    doorHole.Parent = room
-    
-    return room
+-- ===== INICIALIZACIÓN DE DATOS DEL JUGADOR =====
+local function initializePlayerData(player)
+    return {
+        money = 0,
+        businesses = {},
+        upgrades = {
+            clickPower = 0,
+            businessMultiplier = 0,
+            businessSpeed = 0,
+            offlineEarnings = 0
+        },
+        achievements = {},
+        stats = {
+            totalClicks = 0,
+            totalMoney = 0,
+            totalBusinesses = 0,
+            playTime = 0,
+            prestigeLevel = 0,
+            prestigePoints = 0
+        },
+        dailyRewards = {
+            lastClaimed = 0,
+            streak = 0
+        },
+        lastSaveTime = tick(),
+        lastActiveTime = tick(),
+        sessionStartTime = tick()
+    }
 end
 
--- ===== SISTEMA DE BALAS =====
-local function createBullet(startPosition, direction, bulletType, owner)
-    local bullet = Instance.new("Part")
-    bullet.Name = "Bullet"
-    bullet.Size = bulletType.size
-    bullet.Material = Enum.Material.Neon
-    bullet.BrickColor = BrickColor.new(bulletType.color)
-    bullet.Shape = Enum.PartType.Ball
-    bullet.CanCollide = false
-    bullet.Anchored = false
-    bullet.Position = startPosition
+-- ===== SISTEMA DE CLICK MEJORADO =====
+local function handleClick(player)
+    local data = playerData[player.UserId]
+    if not data then return end
     
-    -- BodyVelocity para movimiento
-    local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-    bodyVelocity.Velocity = direction * bulletType.speed
-    bodyVelocity.Parent = bullet
+    local clickPower = 1 + data.upgrades.clickPower
+    local prestigeMultiplier = 1 + (data.stats.prestigeLevel * 0.1)
+    local moneyGained = math.floor(clickPower * prestigeMultiplier)
     
-    -- Información de la bala
-    local bulletInfo = Instance.new("Folder")
-    bulletInfo.Name = "BulletInfo"
-    bulletInfo.Parent = bullet
+    data.money = data.money + moneyGained
+    data.stats.totalClicks = data.stats.totalClicks + 1
+    data.stats.totalMoney = data.stats.totalMoney + moneyGained
+    data.lastActiveTime = tick()
     
-    local ownerValue = Instance.new("StringValue")
-    ownerValue.Name = "Owner"
-    ownerValue.Value = owner
-    ownerValue.Parent = bulletInfo
+    -- Verificar logros
+    local newAchievements = SharedModule.checkAchievements(data)
     
-    local damageValue = Instance.new("IntValue")
-    damageValue.Name = "Damage"
-    damageValue.Value = 1
-    damageValue.Parent = bulletInfo
+    -- Enviar actualización al cliente
+    remoteEvents.click:FireClient(player, data.money, moneyGained, newAchievements)
     
-    bullet.Parent = workspace
-    table.insert(bullets, bullet)
-    
-    -- Destruir bala después del tiempo de vida
-    Debris:AddItem(bullet, bulletType.lifetime)
-    
-    return bullet
+    return data.money, moneyGained
 end
 
--- ===== SISTEMA DE ENEMIGOS =====
-local function createEnemy(enemyType, position)
-    local enemy = Instance.new("Part")
-    enemy.Name = "Enemy"
-    enemy.Size = enemyType.size
-    enemy.Material = Enum.Material.Neon
-    enemy.BrickColor = BrickColor.new(enemyType.color)
-    enemy.Shape = Enum.PartType.Ball
-    enemy.Position = position
-    enemy.Anchored = false
+-- ===== SISTEMA DE COMPRA DE NEGOCIOS MEJORADO =====
+local function handleBuyBusiness(player, businessType)
+    local data = playerData[player.UserId]
+    if not data then return false end
     
-    -- Estadísticas del enemigo
-    local stats = Instance.new("Folder")
-    stats.Name = "Stats"
-    stats.Parent = enemy
+    local business = businessTypes[businessType]
+    if not business then return false end
     
-    local health = Instance.new("IntValue")
-    health.Name = "Health"
-    health.Value = enemyType.health
-    health.Parent = stats
+    local owned = data.businesses[businessType] or 0
+    local cost = SharedModule.calculateBusinessCost(businessType, owned)
     
-    local maxHealth = Instance.new("IntValue")
-    maxHealth.Name = "MaxHealth"
-    maxHealth.Value = enemyType.health
-    maxHealth.Parent = stats
-    
-    local enemyTypeValue = Instance.new("StringValue")
-    enemyTypeValue.Name = "EnemyType"
-    enemyTypeValue.Value = "bulletKin" -- Por ahora solo bulletKin
-    enemyTypeValue.Parent = stats
-    
-    local lastFireTime = Instance.new("NumberValue")
-    lastFireTime.Name = "LastFireTime"
-    lastFireTime.Value = 0
-    lastFireTime.Parent = stats
-    
-    local targetPlayer = Instance.new("ObjectValue")
-    targetPlayer.Name = "TargetPlayer"
-    targetPlayer.Parent = stats
-    
-    -- IA básica del enemigo
-    local humanoid = Instance.new("Humanoid")
-    humanoid.WalkSpeed = enemyType.speed
-    humanoid.MaxHealth = enemyType.health
-    humanoid.Health = enemyType.health
-    humanoid.Parent = enemy
-    
-    -- BodyPosition para movimiento suave
-    local bodyPosition = Instance.new("BodyPosition")
-    bodyPosition.MaxForce = Vector3.new(4000, 0, 4000)
-    bodyPosition.P = 3000
-    bodyPosition.D = 500
-    bodyPosition.Parent = enemy
-    
-    enemy.Parent = workspace
-    table.insert(enemies, enemy)
-    
-    return enemy
-end
-
--- ===== IA DE ENEMIGOS =====
-local function updateEnemyAI(enemy)
-    local stats = enemy:FindFirstChild("Stats")
-    if not stats then return end
-    
-    local health = stats:FindFirstChild("Health")
-    local enemyType = stats:FindFirstChild("EnemyType")
-    local lastFireTime = stats:FindFirstChild("LastFireTime")
-    local targetPlayer = stats:FindFirstChild("TargetPlayer")
-    
-    if not health or health.Value <= 0 then return end
-    
-    -- Encontrar jugador más cercano
-    local closestPlayer = nil
-    local closestDistance = math.huge
-    
-    for _, player in pairs(Players:GetPlayers()) do
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local distance = SharedModule.calculateDistance(
-                enemy.Position,
-                player.Character.HumanoidRootPart.Position
-            )
-            if distance < closestDistance then
-                closestDistance = distance
-                closestPlayer = player
-            end
-        end
-    end
-    
-    if closestPlayer then
-        targetPlayer.Value = closestPlayer
+    if data.money >= cost then
+        data.money = data.money - cost
+        data.businesses[businessType] = owned + 1
+        data.stats.totalBusinesses = data.stats.totalBusinesses + 1
+        data.lastActiveTime = tick()
         
-        local humanoid = enemy:FindFirstChild("Humanoid")
-        local bodyPosition = enemy:FindFirstChild("BodyPosition")
+        -- Verificar logros
+        local newAchievements = SharedModule.checkAchievements(data)
         
-        if humanoid and bodyPosition then
-            local targetPosition = closestPlayer.Character.HumanoidRootPart.Position
-            
-            -- Mantener distancia del jugador
-            local direction = SharedModule.getDirectionToTarget(enemy.Position, targetPosition)
-            local desiredPosition = targetPosition - direction * 8
-            
-            bodyPosition.Position = desiredPosition
-            
-            -- Disparar al jugador
-            local currentTime = tick()
-            local enemyTypeData = enemyTypes[enemyType.Value]
-            
-            if currentTime - lastFireTime.Value >= enemyTypeData.fireRate then
-                local shootDirection = SharedModule.getDirectionToTarget(enemy.Position, targetPosition)
-                createBullet(enemy.Position, shootDirection, bulletStats.enemyBullet, "Enemy")
-                
-                lastFireTime.Value = currentTime
-                
-                -- Efecto de fogonazo
-                SharedModule.createMuzzleFlash(enemy.Position, shootDirection)
-            end
-        end
+        -- Enviar actualización al cliente
+        remoteEvents.buyBusiness:FireClient(player, businessType, data.businesses[businessType], data.money, newAchievements)
+        
+        return true
     end
+    
+    return false
 end
 
--- ===== SISTEMA DE COLISIONES =====
-local function handleBulletCollision(bullet)
-    local bulletInfo = bullet:FindFirstChild("BulletInfo")
-    if not bulletInfo then 
-        bullet:Destroy()
-        return 
+-- ===== SISTEMA DE COMPRA DE MEJORAS MEJORADO =====
+local function handleBuyUpgrade(player, upgradeType)
+    local data = playerData[player.UserId]
+    if not data then return false end
+    
+    local upgrade = upgradeTypes[upgradeType]
+    if not upgrade then return false end
+    
+    local level = data.upgrades[upgradeType] or 0
+    local cost = SharedModule.calculateUpgradeCost(upgradeType, level)
+    
+    if data.money >= cost then
+        data.money = data.money - cost
+        data.upgrades[upgradeType] = level + 1
+        data.lastActiveTime = tick()
+        
+        -- Enviar actualización al cliente
+        remoteEvents.buyUpgrade:FireClient(player, upgradeType, data.upgrades[upgradeType], data.money)
+        
+        return true
     end
     
-    local owner = bulletInfo:FindFirstChild("Owner")
-    local damage = bulletInfo:FindFirstChild("Damage")
-    
-    if not owner or not damage then 
-        bullet:Destroy()
-        return 
-    end
-    
-    -- Verificar colisión con enemigos (si es bala del jugador)
-    if owner.Value == "Player" then
-        for _, enemy in pairs(enemies) do
-            if enemy.Parent and SharedModule.calculateDistance(bullet.Position, enemy.Position) < 3 then
-                local enemyStats = enemy:FindFirstChild("Stats")
-                if enemyStats then
-                    local health = enemyStats:FindFirstChild("Health")
-                    if health and health.Value > 0 then
-                        health.Value = health.Value - damage.Value
-                        
-                        -- Efecto de daño
-                        SharedModule.createDamageNumber(enemy.Position, damage.Value, false)
-                        
-                        if health.Value <= 0 then
-                            -- Enemigo muerto
-                            SharedModule.createExplosionEffect(enemy.Position, 5, enemy.BrickColor.Color)
-                            SharedModule.playSound(soundIds.enemyDeath, 0.5, 1, workspace)
-                            
-                            -- Remover de la lista
-                            for i, e in pairs(enemies) do
-                                if e == enemy then
-                                    table.remove(enemies, i)
-                                    break
-                                end
-                            end
-                            
-                            enemy:Destroy()
-                        end
-                    end
-                end
-                bullet:Destroy()
-                return
-            end
-        end
-    end
-    
-    -- Verificar colisión con jugador (si es bala de enemigo)
-    if owner.Value == "Enemy" then
-        for _, player in pairs(Players:GetPlayers()) do
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                if SharedModule.calculateDistance(bullet.Position, player.Character.HumanoidRootPart.Position) < 3 then
-                    -- Dañar jugador
-                    local humanoid = player.Character:FindFirstChild("Humanoid")
-                    if humanoid and humanoid.Health > 0 then
-                        humanoid.Health = humanoid.Health - damage.Value
-                        
-                        -- Notificar al cliente
-                        remoteEvents.playerHurt:FireClient(player, humanoid.Health, humanoid.MaxHealth)
-                        
-                        -- Efecto de daño
-                        SharedModule.createDamageNumber(player.Character.HumanoidRootPart.Position, damage.Value, false)
-                        SharedModule.playSound(soundIds.playerHurt, 0.7, 1, workspace)
-                        
-                        if humanoid.Health <= 0 then
-                            -- Jugador muerto
-                            print(player.Name .. " ha muerto!")
-                        end
-                    end
-                    bullet:Destroy()
-                    return
-                end
-            end
-        end
-    end
-    
-    -- Verificar colisión con paredes usando raycast
-    local room = workspace:FindFirstChild("GungeonRoom")
-    if room then
-        for _, part in pairs(room:GetChildren()) do
-            if part:IsA("Part") and part.Name ~= "Floor" and part.Name ~= "Door" then
-                -- Usar raycast para detectar colisión más precisa
-                local raycastParams = RaycastParams.new()
-                raycastParams.FilterType = Enum.RaycastFilterType.Whitelist
-                raycastParams.FilterDescendantsInstances = {part}
-                
-                local ray = workspace:Raycast(bullet.Position, bullet.CFrame.LookVector * 2, raycastParams)
-                if ray then
-                    bullet:Destroy()
-                    return
-                end
-            end
-        end
-    end
-    
-    -- Destruir bala si sale del área de la habitación
-    local roomCenter = Vector3.new(0, 0, 0)
-    local roomSize = roomConfig.roomSize
-    if not SharedModule.isPositionInRoom(bullet.Position, roomCenter, roomSize) then
-        bullet:Destroy()
-        return
-    end
+    return false
 end
 
--- ===== SPAWN DE ENEMIGOS =====
-local function spawnEnemyWave()
-    if not currentRoom then return end
+-- ===== SISTEMA DE RECOLECCIÓN DE NEGOCIOS MEJORADO =====
+local function handleCollectBusiness(player, businessType)
+    local data = playerData[player.UserId]
+    if not data then return 0 end
     
-    local spawnPositions = {
-        Vector3.new(-15, 2, -15),
-        Vector3.new(15, 2, -15),
-        Vector3.new(-15, 2, 15),
-        Vector3.new(15, 2, 15)
+    local owned = data.businesses[businessType] or 0
+    if owned == 0 then return 0 end
+    
+    local multipliers = {
+        businessMultiplier = 1 + (data.upgrades.businessMultiplier or 0),
+        businessSpeed = 1 + (data.upgrades.businessSpeed or 0)
     }
     
-    for _, position in pairs(spawnPositions) do
-        local enemyType = "bulletKin"
-        createEnemy(enemyTypes[enemyType], position)
+    local income = SharedModule.calculateBusinessIncome(businessType, owned, multipliers)
+    local prestigeMultiplier = 1 + (data.stats.prestigeLevel * 0.1)
+    income = math.floor(income * prestigeMultiplier)
+    
+    if income > 0 then
+        data.money = data.money + income
+        data.stats.totalMoney = data.stats.totalMoney + income
+        data.lastActiveTime = tick()
+        
+        -- Enviar actualización al cliente
+        remoteEvents.collectBusiness:FireClient(player, businessType, income, data.money)
     end
+    
+    return income
+end
+
+-- ===== SISTEMA DE PRESTIGE =====
+local function handlePrestige(player)
+    local data = playerData[player.UserId]
+    if not data then return false end
+    
+    -- Requisito mínimo para hacer prestige
+    local minMoney = 1000000 -- $1M
+    if data.money < minMoney then return false end
+    
+    -- Calcular puntos de prestige
+    local prestigePoints = math.floor(data.money / 1000000)
+    
+    -- Resetear progreso
+    data.money = 0
+    data.businesses = {}
+    data.upgrades = {
+        clickPower = 0,
+        businessMultiplier = 0,
+        businessSpeed = 0,
+        offlineEarnings = 0
+    }
+    
+    -- Aumentar nivel de prestige
+    data.stats.prestigeLevel = data.stats.prestigeLevel + 1
+    data.stats.prestigePoints = data.stats.prestigePoints + prestigePoints
+    
+    -- Enviar actualización al cliente
+    remoteEvents.prestige:FireClient(player, data.stats.prestigeLevel, data.stats.prestigePoints)
+    
+    return true
+end
+
+-- ===== SISTEMA DE RECOMPENSAS DIARIAS =====
+local function handleDailyReward(player)
+    local data = playerData[player.UserId]
+    if not data then return false end
+    
+    local currentTime = tick()
+    local lastClaimed = data.dailyRewards.lastClaimed
+    local timeSinceLastClaim = currentTime - lastClaimed
+    
+    -- Verificar si puede reclamar (24 horas = 86400 segundos)
+    if timeSinceLastClaim < 86400 then
+        return false
+    end
+    
+    -- Calcular recompensa
+    local baseReward = 10000
+    local streakBonus = data.dailyRewards.streak * 1000
+    local reward = baseReward + streakBonus
+    
+    data.money = data.money + reward
+    data.dailyRewards.lastClaimed = currentTime
+    data.dailyRewards.streak = data.dailyRewards.streak + 1
+    
+    -- Enviar actualización al cliente
+    remoteEvents.dailyReward:FireClient(player, reward, data.dailyRewards.streak)
+    
+    return true
+end
+
+-- ===== SISTEMA DE GUARDADO MEJORADO =====
+local function savePlayerData(player)
+    local data = playerData[player.UserId]
+    if not data then return false end
+    
+    data.lastSaveTime = tick()
+    
+    -- Solo guardar si DataStore está disponible
+    if playerDataStore then
+        local success, errorMessage = pcall(function()
+            playerDataStore:SetAsync(player.UserId, data)
+        end)
+        
+        if success then
+            print("Datos guardados para " .. player.Name)
+            return true
+        else
+            warn("Error al guardar datos para " .. player.Name .. ": " .. errorMessage)
+            return false
+        end
+    else
+        print("⚠️ Modo Studio: Datos no guardados (DataStore no disponible)")
+        return true
+    end
+end
+
+-- ===== SISTEMA DE CARGA MEJORADO =====
+local function loadPlayerData(player)
+    -- Solo cargar si DataStore está disponible
+    if playerDataStore then
+        local success, data = pcall(function()
+            return playerDataStore:GetAsync(player.UserId)
+        end)
+        
+        if success and data then
+            -- Calcular ganancias offline
+            local offlineTime = tick() - (data.lastActiveTime or tick())
+            if offlineTime > 60 and data.upgrades.offlineEarnings > 0 then
+                local offlineEarnings = SharedModule.calculateOfflineEarnings(data, offlineTime)
+                if offlineEarnings > 0 then
+                    data.money = data.money + offlineEarnings
+                    print(player.Name .. " ganó $" .. SharedModule.formatNumber(offlineEarnings) .. " offline")
+                end
+            end
+            
+            -- Inicializar campos nuevos si no existen
+            data.dailyRewards = data.dailyRewards or {lastClaimed = 0, streak = 0}
+            data.stats.prestigeLevel = data.stats.prestigeLevel or 0
+            data.stats.prestigePoints = data.stats.prestigePoints or 0
+            
+            playerData[player.UserId] = data
+            print("Datos cargados para " .. player.Name)
+            return data
+        end
+    end
+    
+    -- Crear datos nuevos (modo Studio o sin datos guardados)
+    local newData = initializePlayerData(player)
+    playerData[player.UserId] = newData
+    print("Datos nuevos creados para " .. player.Name)
+    return newData
 end
 
 -- ===== EVENTOS =====
-remoteEvents.fireWeapon.OnServerEvent:Connect(function(player, weaponName, direction, position)
-    local weaponStats = SharedModule.getWeaponStats()
-    local weapon = weaponStats[weaponName]
-    if not weapon then return end
-    
-    -- Crear bala del jugador
-    local bulletType = bulletStats.playerBullet
-    createBullet(position, direction, bulletType, "Player")
-    
-    -- Si es shotgun, crear múltiples balas
-    if weaponName == "shotgun" then
-        for i = 1, weapon.pellets - 1 do
-            local spreadDirection = SharedModule.addSpreadToDirection(direction, weapon.spread)
-            createBullet(position, spreadDirection, bulletType, "Player")
-        end
-    end
+remoteEvents.click.OnServerEvent:Connect(function(player)
+    handleClick(player)
 end)
 
-remoteEvents.roll.OnServerEvent:Connect(function(player, direction, position)
-    -- El roll se maneja principalmente en el cliente
-    -- Aquí podríamos agregar lógica adicional del servidor si es necesario
+remoteEvents.buyBusiness.OnServerEvent:Connect(function(player, businessType)
+    handleBuyBusiness(player, businessType)
 end)
 
--- ===== BUCLE PRINCIPAL =====
-local lastEnemySpawn = 0
-local enemySpawnInterval = 10 -- segundos
+remoteEvents.buyUpgrade.OnServerEvent:Connect(function(player, upgradeType)
+    handleBuyUpgrade(player, upgradeType)
+end)
+
+remoteEvents.collectBusiness.OnServerEvent:Connect(function(player, businessType)
+    handleCollectBusiness(player, businessType)
+end)
+
+remoteEvents.prestige.OnServerEvent:Connect(function(player)
+    handlePrestige(player)
+end)
+
+remoteEvents.dailyReward.OnServerEvent:Connect(function(player)
+    handleDailyReward(player)
+end)
+
+remoteEvents.saveData.OnServerEvent:Connect(function(player)
+    savePlayerData(player)
+end)
+
+remoteEvents.loadData.OnServerEvent:Connect(function(player)
+    local data = loadPlayerData(player)
+    remoteEvents.loadData:FireClient(player, data)
+end)
+
+-- ===== BUCLE PRINCIPAL MEJORADO =====
+local lastSaveTime = 0
+local lastBusinessUpdate = 0
 
 RunService.Heartbeat:Connect(function()
-    -- Actualizar IA de enemigos
-    for _, enemy in pairs(enemies) do
-        if enemy.Parent then
-            updateEnemyAI(enemy)
-        end
-    end
-    
-    -- Manejar colisiones de balas
-    for i = #bullets, 1, -1 do
-        local bullet = bullets[i]
-        if bullet.Parent then
-            handleBulletCollision(bullet)
-        else
-            table.remove(bullets, i)
-        end
-    end
-    
-    -- Spawn de enemigos
     local currentTime = tick()
-    if currentTime - lastEnemySpawn >= enemySpawnInterval then
-        spawnEnemyWave()
-        lastEnemySpawn = currentTime
+    
+    -- Guardado automático cada cierto tiempo
+    if currentTime - lastSaveTime >= gameConfig.saveInterval then
+        for _, player in pairs(Players:GetPlayers()) do
+            if playerData[player.UserId] then
+                savePlayerData(player)
+            end
+        end
+        lastSaveTime = currentTime
+    end
+    
+    -- Actualizar tiempo de juego y enviar actualizaciones
+    for _, player in pairs(Players:GetPlayers()) do
+        local data = playerData[player.UserId]
+        if data then
+            data.stats.playTime = data.stats.playTime + 1/60 -- 60 FPS
+            
+            -- Enviar actualizaciones periódicas al cliente
+            if currentTime - lastBusinessUpdate >= 1 then -- Cada segundo
+                remoteEvents.loadData:FireClient(player, data)
+            end
+        end
+    end
+    
+    if currentTime - lastBusinessUpdate >= 1 then
+        lastBusinessUpdate = currentTime
     end
 end)
 
 -- ===== INICIALIZACIÓN =====
-print("=== ENTER THE GUNGEON SERVER INICIADO ===")
-print("🎮 Creando habitación del Gungeon...")
+print("=== SURVIVAL CAPITALIST SERVER MEJORADO ===")
+print("💰 Sistema de clicker mejorado iniciado")
+print("💾 Sistema de guardado avanzado activado")
+print("🏆 Sistema de prestige implementado")
+print("🎁 Recompensas diarias activadas")
 
--- Crear habitación
-currentRoom = createRoom()
-
--- Configurar jugadores
 Players.PlayerAdded:Connect(function(player)
     print("Jugador conectado: " .. player.Name)
     
-    -- Inicializar estadísticas del jugador
-    playerStats[player.UserId] = {
-        health = 6,
-        ammo = 999,
-        keys = 0,
-        currentWeapon = "pistol"
-    }
+    -- Cargar datos del jugador
+    local data = loadPlayerData(player)
     
-    player.CharacterAdded:Connect(function(character)
-        print("Personaje de " .. player.Name .. " está listo!")
-        
-        local humanoid = character:WaitForChild("Humanoid")
-        humanoid.WalkSpeed = 16
-        humanoid.MaxHealth = 6
-        humanoid.Health = 6
-        
-        -- Posicionar jugador en la habitación
-        local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-        humanoidRootPart.Position = Vector3.new(0, 2, -15)
-    end)
+    -- Enviar datos iniciales al cliente
+    wait(1) -- Esperar a que el cliente esté listo
+    remoteEvents.loadData:FireClient(player, data)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
     print("Jugador desconectado: " .. player.Name)
-    playerStats[player.UserId] = nil
+    
+    -- Guardar datos antes de que se vaya
+    if playerData[player.UserId] then
+        savePlayerData(player)
+        playerData[player.UserId] = nil
+    end
 end)
-
-print("✅ Servidor listo! Esperando jugadores...")

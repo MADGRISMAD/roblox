@@ -1,238 +1,430 @@
--- Módulo compartido para Enter the Gungeon
+-- Módulo compartido para Survival Capitalist Clicker
 local SharedModule = {}
 
--- ===== CONFIGURACIÓN DEL JUGADOR =====
-function SharedModule.getPlayerStats()
+-- ===== CONFIGURACIÓN DEL JUEGO =====
+function SharedModule.getGameConfig()
     return {
-        maxHealth = 6,
-        moveSpeed = 16,
-        rollSpeed = 30,
-        rollDuration = 0.3,
-        rollCooldown = 0.5,
-        invulnerabilityTime = 1.0
+        gameName = "Survival Capitalist",
+        version = "1.0.0",
+        saveInterval = 30, -- segundos
+        autoSaveEnabled = true
     }
 end
 
--- ===== CONFIGURACIÓN DE ARMAS =====
-function SharedModule.getWeaponStats()
+-- ===== CONFIGURACIÓN DE NEGOCIOS =====
+function SharedModule.getBusinessTypes()
     return {
-        pistol = {
-            damage = 1,
-            fireRate = 0.5,
-            ammo = 999,
-            spread = 0,
-            bulletSpeed = 50,
-            bulletSize = 0.2
+        lemonadeStand = {
+            name = "Puesto de Limonada",
+            baseCost = 4,
+            baseIncome = 1,
+            baseTime = 1.0,
+            icon = "🍋",
+            description = "Un simple puesto de limonada",
+            unlockLevel = 0
         },
-        shotgun = {
-            damage = 1,
-            fireRate = 1.0,
-            ammo = 30,
-            spread = 15,
-            bulletSpeed = 40,
-            bulletSize = 0.3,
-            pellets = 5
+        newspaperDelivery = {
+            name = "Reparto de Periódicos",
+            baseCost = 60,
+            baseIncome = 60,
+            baseTime = 3.0,
+            icon = "📰",
+            description = "Entrega periódicos por el vecindario",
+            unlockLevel = 1
         },
-        rifle = {
-            damage = 1,
-            fireRate = 0.2,
-            ammo = 100,
-            spread = 2,
-            bulletSpeed = 60,
-            bulletSize = 0.15
+        carWash = {
+            name = "Lavado de Autos",
+            baseCost = 720,
+            baseIncome = 540,
+            baseTime = 6.0,
+            icon = "🚗",
+            description = "Lava autos y gana dinero",
+            unlockLevel = 2
+        },
+        pizzaDelivery = {
+            name = "Reparto de Pizza",
+            baseCost = 8640,
+            baseIncome = 4320,
+            baseTime = 12.0,
+            icon = "🍕",
+            description = "Entrega pizzas a domicilio",
+            unlockLevel = 3
+        },
+        donutShop = {
+            name = "Tienda de Donas",
+            baseCost = 103680,
+            baseIncome = 51840,
+            baseTime = 24.0,
+            icon = "🍩",
+            description = "Vende donas frescas",
+            unlockLevel = 4
+        },
+        shrimpBoat = {
+            name = "Barco Camaronero",
+            baseCost = 1244160,
+            baseIncome = 622080,
+            baseTime = 96.0,
+            icon = "🦐",
+            description = "Pesca camarones en el mar",
+            unlockLevel = 5
+        },
+        hockeyTeam = {
+            name = "Equipo de Hockey",
+            baseCost = 14929920,
+            baseIncome = 7464960,
+            baseTime = 384.0,
+            icon = "🏒",
+            description = "Equipo profesional de hockey",
+            unlockLevel = 6
+        },
+        movieStudio = {
+            name = "Estudio de Cine",
+            baseCost = 179159040,
+            baseIncome = 89579520,
+            baseTime = 1536.0,
+            icon = "🎬",
+            description = "Produce películas de Hollywood",
+            unlockLevel = 7
+        },
+        bank = {
+            name = "Banco",
+            baseCost = 2149908480,
+            baseIncome = 1074954240,
+            baseTime = 6144.0,
+            icon = "🏦",
+            description = "Banco con inversiones",
+            unlockLevel = 8
+        },
+        oilCompany = {
+            name = "Compañía Petrolera",
+            baseCost = 25798901760,
+            baseIncome = 12899450880,
+            baseTime = 24576.0,
+            icon = "🛢️",
+            description = "Extrae y vende petróleo",
+            unlockLevel = 9
         }
     }
 end
 
--- ===== CONFIGURACIÓN DE ENEMIGOS =====
-function SharedModule.getEnemyTypes()
+-- ===== CONFIGURACIÓN DE MEJORAS =====
+function SharedModule.getUpgradeTypes()
     return {
-        bulletKin = {
-            health = 1,
-            speed = 8,
-            damage = 1,
-            fireRate = 2.0,
-            bulletSpeed = 20,
-            size = Vector3.new(2, 2, 2),
-            color = Color3.new(1, 0, 0),
-            points = 10
+        clickPower = {
+            name = "Poder de Click",
+            description = "Aumenta el dinero por click",
+            baseCost = 10,
+            costMultiplier = 1.15,
+            effect = "multiplyClickPower",
+            icon = "👆"
         },
-        shotgunKin = {
-            health = 2,
-            speed = 6,
-            damage = 1,
-            fireRate = 3.0,
-            bulletSpeed = 15,
-            size = Vector3.new(2.5, 2.5, 2.5),
-            color = Color3.new(1, 0.5, 0),
-            points = 20,
-            pellets = 3
+        businessMultiplier = {
+            name = "Multiplicador de Negocios",
+            description = "Aumenta los ingresos de todos los negocios",
+            baseCost = 100,
+            costMultiplier = 1.2,
+            effect = "multiplyBusinessIncome",
+            icon = "📈"
         },
-        veteranBulletKin = {
-            health = 3,
-            speed = 10,
-            damage = 1,
-            fireRate = 1.5,
-            bulletSpeed = 25,
-            size = Vector3.new(2.2, 2.2, 2.2),
-            color = Color3.new(0.8, 0, 0.8),
-            points = 30
+        businessSpeed = {
+            name = "Velocidad de Negocios",
+            description = "Reduce el tiempo de todos los negocios",
+            baseCost = 1000,
+            costMultiplier = 1.25,
+            effect = "multiplyBusinessSpeed",
+            icon = "⚡"
+        },
+        offlineEarnings = {
+            name = "Ganancias Offline",
+            description = "Gana dinero mientras no juegas",
+            baseCost = 10000,
+            costMultiplier = 1.3,
+            effect = "enableOfflineEarnings",
+            icon = "💤"
         }
     }
 end
 
--- ===== CONFIGURACIÓN DE BALAS =====
-function SharedModule.getBulletStats()
+-- ===== CONFIGURACIÓN DE LOGROS =====
+function SharedModule.getAchievements()
     return {
-        playerBullet = {
-            speed = 50,
-            size = Vector3.new(0.2, 0.2, 0.2),
-            color = Color3.new(1, 1, 0),
-            lifetime = 3.0
+        firstClick = {
+            name = "Primer Click",
+            description = "Haz tu primer click",
+            reward = 10,
+            condition = "totalClicks >= 1",
+            icon = "🎯"
         },
-        enemyBullet = {
-            speed = 20,
-            size = Vector3.new(0.3, 0.3, 0.3),
-            color = Color3.new(1, 0, 0),
-            lifetime = 5.0
+        firstBusiness = {
+            name = "Primer Negocio",
+            description = "Compra tu primer negocio",
+            reward = 100,
+            condition = "totalBusinesses >= 1",
+            icon = "🏪"
+        },
+        millionaire = {
+            name = "Millonario",
+            description = "Acumula $1,000,000",
+            reward = 10000,
+            condition = "totalMoney >= 1000000",
+            icon = "💰"
+        },
+        businessMogul = {
+            name = "Magnate de Negocios",
+            description = "Compra 10 negocios",
+            reward = 50000,
+            condition = "totalBusinesses >= 10",
+            icon = "👑"
+        },
+        clickMaster = {
+            name = "Maestro del Click",
+            description = "Haz 1000 clicks",
+            reward = 25000,
+            condition = "totalClicks >= 1000",
+            icon = "👆"
+        },
+        speedClicker = {
+            name = "Clicker Veloz",
+            description = "Haz 100 clicks en 10 segundos",
+            reward = 5000,
+            condition = "speedClicks >= 100",
+            icon = "⚡"
+        },
+        businessTycoon = {
+            name = "Magnate Empresarial",
+            description = "Compra 50 negocios",
+            reward = 100000,
+            condition = "totalBusinesses >= 50",
+            icon = "🏢"
+        },
+        billionaire = {
+            name = "Multimillonario",
+            description = "Acumula $1,000,000,000",
+            reward = 500000,
+            condition = "totalMoney >= 1000000000",
+            icon = "💎"
+        },
+        prestigeMaster = {
+            name = "Maestro del Prestige",
+            description = "Alcanza nivel 10 de prestige",
+            reward = 1000000,
+            condition = "prestigeLevel >= 10",
+            icon = "🌟"
+        },
+        dailyPlayer = {
+            name = "Jugador Diario",
+            description = "Reclama 7 recompensas diarias seguidas",
+            reward = 50000,
+            condition = "dailyStreak >= 7",
+            icon = "📅"
         }
     }
 end
 
--- ===== CONFIGURACIÓN DE HABITACIONES =====
-function SharedModule.getRoomConfig()
+-- ===== CONFIGURACIÓN DE EVENTOS ESPECIALES =====
+function SharedModule.getSpecialEvents()
     return {
-        roomSize = Vector3.new(40, 20, 40),
-        wallThickness = 2,
-        doorSize = Vector3.new(4, 8, 2),
-        spawnDistance = 15,
-        enemySpawnDelay = 2.0
+        doubleMoney = {
+            name = "Doble Dinero",
+            description = "¡Gana el doble de dinero por 5 minutos!",
+            duration = 300, -- 5 minutos
+            multiplier = 2,
+            icon = "💰💰"
+        },
+        speedBoost = {
+            name = "Boost de Velocidad",
+            description = "¡Los negocios trabajan 3x más rápido por 10 minutos!",
+            duration = 600, -- 10 minutos
+            multiplier = 3,
+            icon = "⚡⚡⚡"
+        },
+        luckyDay = {
+            name = "Día de Suerte",
+            description = "¡10% de probabilidad de ganar 10x dinero por 15 minutos!",
+            duration = 900, -- 15 minutos
+            multiplier = 10,
+            chance = 0.1,
+            icon = "🍀"
+        }
     }
 end
 
--- ===== CONFIGURACIÓN DE OBJETOS =====
-function SharedModule.getItemStats()
+-- ===== CONFIGURACIÓN DE MISIONES DIARIAS =====
+function SharedModule.getDailyMissions()
     return {
-        healthPickup = {
-            healAmount = 1,
-            size = Vector3.new(1, 1, 1),
-            color = Color3.new(0, 1, 0)
+        clickMission = {
+            name = "Clicker Diario",
+            description = "Haz 500 clicks",
+            target = 500,
+            reward = 10000,
+            type = "clicks",
+            icon = "👆"
         },
-        ammoPickup = {
-            ammoAmount = 20,
-            size = Vector3.new(0.8, 0.8, 0.8),
-            color = Color3.new(0, 0, 1)
+        businessMission = {
+            name = "Comprador Diario",
+            description = "Compra 5 negocios",
+            target = 5,
+            reward = 15000,
+            type = "businesses",
+            icon = "🏪"
         },
-        keyPickup = {
-            size = Vector3.new(0.5, 0.5, 0.5),
-            color = Color3.new(1, 1, 0)
+        moneyMission = {
+            name = "Recolector Diario",
+            description = "Gana $100,000",
+            target = 100000,
+            reward = 20000,
+            type = "money",
+            icon = "💰"
         }
     }
 end
 
 -- ===== FUNCIONES UTILITARIAS =====
-function SharedModule.calculateDistance(pos1, pos2)
-    return (pos1 - pos2).Magnitude
+function SharedModule.formatNumber(number)
+    if number < 1000 then
+        return tostring(math.floor(number))
+    elseif number < 1000000 then
+        return string.format("%.1fK", number / 1000)
+    elseif number < 1000000000 then
+        return string.format("%.1fM", number / 1000000)
+    elseif number < 1000000000000 then
+        return string.format("%.1fB", number / 1000000000)
+    else
+        return string.format("%.1fT", number / 1000000000000)
+    end
 end
 
-function SharedModule.getRandomPositionInRoom(roomCenter, roomSize)
-    local halfX = roomSize.X / 2 - 5
-    local halfZ = roomSize.Z / 2 - 5
+function SharedModule.calculateBusinessCost(businessType, owned)
+    local business = SharedModule.getBusinessTypes()[businessType]
+    if not business then return 0 end
     
-    return Vector3.new(
-        roomCenter.X + math.random(-halfX, halfX),
-        roomCenter.Y + 2,
-        roomCenter.Z + math.random(-halfZ, halfZ)
-    )
+    return math.floor(business.baseCost * math.pow(1.15, owned))
 end
 
-function SharedModule.isPositionInRoom(position, roomCenter, roomSize)
-    local halfX = roomSize.X / 2
-    local halfZ = roomSize.Z / 2
+function SharedModule.calculateBusinessIncome(businessType, owned, multipliers)
+    local business = SharedModule.getBusinessTypes()[businessType]
+    if not business or owned == 0 then return 0 end
     
-    return math.abs(position.X - roomCenter.X) < halfX and
-           math.abs(position.Z - roomCenter.Z) < halfZ
+    local baseIncome = business.baseIncome * owned
+    local multiplier = multipliers.businessMultiplier or 1
+    local managerBonus = multipliers.managerBonus or 1
+    
+    return math.floor(baseIncome * multiplier * managerBonus)
 end
 
-function SharedModule.getDirectionToTarget(from, to)
-    return (to - from).Unit
+function SharedModule.calculateBusinessTime(businessType, owned, multipliers)
+    local business = SharedModule.getBusinessTypes()[businessType]
+    if not business then return 0 end
+    
+    local baseTime = business.baseTime
+    local speedMultiplier = multipliers.businessSpeed or 1
+    
+    return baseTime / speedMultiplier
 end
 
-function SharedModule.addSpreadToDirection(direction, spreadDegrees)
-    local spreadRadians = math.rad(spreadDegrees)
-    local randomSpread = math.random(-spreadRadians, spreadRadians)
+function SharedModule.calculateUpgradeCost(upgradeType, level)
+    local upgrade = SharedModule.getUpgradeTypes()[upgradeType]
+    if not upgrade then return 0 end
     
-    local rotation = CFrame.Angles(0, randomSpread, 0)
-    return (rotation * direction).Unit
+    return math.floor(upgrade.baseCost * math.pow(upgrade.costMultiplier, level))
 end
 
-function SharedModule.createExplosionEffect(position, size, color)
-    local explosion = Instance.new("Explosion")
-    explosion.Position = position
-    explosion.BlastRadius = size
-    explosion.BlastPressure = 0
-    explosion.Visible = true
-    explosion.Parent = workspace
+function SharedModule.getUnlockedBusinesses(level)
+    local businesses = SharedModule.getBusinessTypes()
+    local unlocked = {}
     
-    -- Crear partículas adicionales
-    local attachment = Instance.new("Attachment")
-    attachment.Parent = workspace.Terrain
+    for businessType, business in pairs(businesses) do
+        if business.unlockLevel <= level then
+            table.insert(unlocked, businessType)
+        end
+    end
     
-    local particles = Instance.new("ParticleEmitter")
-    particles.Parent = attachment
-    particles.Texture = "rbxasset://textures/particles/fire_main.dds"
-    particles.Lifetime = NumberRange.new(0.5, 1.0)
-    particles.Rate = 100
-    particles.SpreadAngle = Vector2.new(45, 45)
-    particles.Speed = NumberRange.new(5, 15)
-    particles.Color = ColorSequence.new(color)
-    particles.Size = NumberSequence.new{
-        NumberSequenceKeypoint.new(0, 1),
-        NumberSequenceKeypoint.new(1, 0)
-    }
-    
-    attachment.Position = position
-    particles:Emit(50)
-    
-    game:GetService("Debris"):AddItem(attachment, 2)
+    return unlocked
 end
 
-function SharedModule.createDamageNumber(position, damage, isCritical)
-    local gui = Instance.new("BillboardGui")
-    gui.Size = UDim2.new(0, 100, 0, 50)
-    gui.StudsOffset = Vector3.new(0, 2, 0)
-    gui.Parent = workspace.Terrain
+function SharedModule.calculateOfflineEarnings(playerData, offlineTime)
+    if not playerData.upgrades.offlineEarnings or offlineTime < 60 then
+        return 0
+    end
     
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, 0, 1, 0)
-    textLabel.BackgroundTransparency = 1
-    textLabel.Text = tostring(damage)
-    textLabel.TextColor3 = isCritical and Color3.new(1, 1, 0) or Color3.new(1, 1, 1)
-    textLabel.TextScaled = true
-    textLabel.Font = Enum.Font.SourceSansBold
-    textLabel.Parent = gui
+    local totalEarnings = 0
+    local businesses = SharedModule.getBusinessTypes()
     
-    gui.Position = position
+    for businessType, owned in pairs(playerData.businesses) do
+        if owned > 0 then
+            local business = businesses[businessType]
+            local cycles = math.floor(offlineTime / business.baseTime)
+            local earnings = cycles * business.baseIncome * owned
+            totalEarnings = totalEarnings + earnings
+        end
+    end
     
-    -- Animar hacia arriba
+    return math.floor(totalEarnings * (playerData.upgrades.businessMultiplier or 1))
+end
+
+function SharedModule.checkAchievements(playerData)
+    local achievements = SharedModule.getAchievements()
+    local newAchievements = {}
+    
+    for achievementId, achievement in pairs(achievements) do
+        if not playerData.achievements[achievementId] then
+            local condition = achievement.condition
+            local unlocked = false
+            
+            if condition == "totalClicks >= 1" then
+                unlocked = playerData.stats.totalClicks >= 1
+            elseif condition == "totalBusinesses >= 1" then
+                unlocked = playerData.stats.totalBusinesses >= 1
+            elseif condition == "totalMoney >= 1000000" then
+                unlocked = playerData.stats.totalMoney >= 1000000
+            elseif condition == "totalBusinesses >= 10" then
+                unlocked = playerData.stats.totalBusinesses >= 10
+            elseif condition == "totalClicks >= 1000" then
+                unlocked = playerData.stats.totalClicks >= 1000
+            end
+            
+            if unlocked then
+                playerData.achievements[achievementId] = true
+                playerData.money = playerData.money + achievement.reward
+                table.insert(newAchievements, {
+                    id = achievementId,
+                    name = achievement.name,
+                    reward = achievement.reward
+                })
+            end
+        end
+    end
+    
+    return newAchievements
+end
+
+function SharedModule.createParticleEffect(position, color, size)
+    local particle = Instance.new("Part")
+    particle.Name = "MoneyParticle"
+    particle.Size = Vector3.new(size, size, size)
+    particle.Material = Enum.Material.Neon
+    particle.BrickColor = BrickColor.new(color)
+    particle.Shape = Enum.PartType.Ball
+    particle.Anchored = true
+    particle.CanCollide = false
+    particle.Position = position
+    particle.Parent = workspace
+    
+    -- Animar la partícula
     local tweenInfo = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     local moveTween = game:GetService("TweenService"):Create(
-        gui,
+        particle,
         tweenInfo,
-        {StudsOffset = Vector3.new(0, 5, 0)}
-    )
-    
-    local fadeTween = game:GetService("TweenService"):Create(
-        textLabel,
-        tweenInfo,
-        {TextTransparency = 1}
+        {
+            Position = position + Vector3.new(0, 10, 0),
+            Transparency = 1,
+            Size = Vector3.new(size * 2, size * 2, size * 2)
+        }
     )
     
     moveTween:Play()
-    fadeTween:Play()
-    
     moveTween.Completed:Connect(function()
-        gui:Destroy()
+        particle:Destroy()
     end)
 end
 
@@ -252,69 +444,11 @@ end
 -- ===== CONFIGURACIÓN DE SONIDOS =====
 function SharedModule.getSoundIds()
     return {
-        shoot = "rbxasset://sounds/electronicpingsharp_loud.wav",
-        hit = "rbxasset://sounds/impact_generic.mp3",
-        enemyDeath = "rbxasset://sounds/impact_water.mp3",
-        playerHurt = "rbxasset://sounds/impact_water.mp3",
-        roll = "rbxasset://sounds/button.wav",
-        pickup = "rbxasset://sounds/button.wav",
-        doorOpen = "rbxasset://sounds/button.wav"
+        click = "rbxasset://sounds/button.wav",
+        purchase = "rbxasset://sounds/electronicpingsharp_loud.wav",
+        achievement = "rbxasset://sounds/impact_generic.mp3",
+        businessComplete = "rbxasset://sounds/impact_water.mp3"
     }
-end
-
--- ===== CONFIGURACIÓN DE EFECTOS VISUALES =====
-function SharedModule.createMuzzleFlash(position, direction)
-    local flash = Instance.new("Part")
-    flash.Name = "MuzzleFlash"
-    flash.Size = Vector3.new(0.5, 0.5, 1)
-    flash.Material = Enum.Material.Neon
-    flash.BrickColor = BrickColor.new("Bright yellow")
-    flash.Anchored = true
-    flash.CanCollide = false
-    flash.Parent = workspace
-    
-    flash.CFrame = CFrame.lookAt(position, position + direction)
-    
-    -- Animar el flash
-    local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local flashTween = game:GetService("TweenService"):Create(
-        flash,
-        tweenInfo,
-        {Transparency = 1, Size = Vector3.new(1, 1, 2)}
-    )
-    
-    flashTween:Play()
-    flashTween.Completed:Connect(function()
-        flash:Destroy()
-    end)
-end
-
-function SharedModule.createRollEffect(position, direction)
-    local effect = Instance.new("Part")
-    effect.Name = "RollEffect"
-    effect.Size = Vector3.new(2, 0.2, 2)
-    effect.Material = Enum.Material.Neon
-    effect.BrickColor = BrickColor.new("Cyan")
-    effect.Anchored = true
-    effect.CanCollide = false
-    effect.Transparency = 0.5
-    effect.Parent = workspace
-    
-    effect.Position = position
-    effect.CFrame = CFrame.lookAt(position, position + direction)
-    
-    -- Animar el efecto
-    local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local effectTween = game:GetService("TweenService"):Create(
-        effect,
-        tweenInfo,
-        {Transparency = 1, Size = Vector3.new(4, 0.1, 4)}
-    )
-    
-    effectTween:Play()
-    effectTween.Completed:Connect(function()
-        effect:Destroy()
-    end)
 end
 
 return SharedModule
